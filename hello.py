@@ -6,6 +6,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField
 from wtforms.validators import DataRequired
 from flask_mongoengine import MongoEngine
+from flask_mail import Mail, Message
 import urllib
 
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -17,12 +18,25 @@ app.config['MONGODB_SETTINGS'] = {
     'username': "localhost",
     'password': 'C2y6yDjf5' + r'/R' + '+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw' + r'/Jw=='
 }
+app.config['MAIL_SERVER'] = 'smtp.googlemail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+
+# os.environ["MAIL_USERNAME"] = "examlpe_user@gmail.com"
+# os.environ['MAIL_PASSWORD'] = 'example_password'
+
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['FLASKY_MAIL_SUBJECT_PREFIX'] = '[Flasky]'
+app.config['FLASKY_MAIL_SENDER'] = 'Flasky Admin <flasky@example.com>'
+# app.config['FLASKY_ADMIN'] = "example_admin@gmail.com"
 
 
 bootstrap = Bootstrap(app)
 moment = Moment(app)
 db = MongoEngine()
 db.init_app(app)
+mail = Mail(app)
 
 
 class Role(db.Document):
@@ -40,9 +54,22 @@ class User(db.Document):
         return '<User %r>' % self.username
 
 
+def send_email(to, subject, template, **kwargs):
+    msg = Message(app.config['FLASKY_MAIL_SUBJECT_PREFIX'] + ' ' + subject,
+                  sender=app.config['FLASKY_MAIL_SENDER'], recipients=[to])
+    msg.body = render_template(template + '.txt', **kwargs)
+    msg.html = render_template(template + '.html', **kwargs)
+    mail.send(msg)
+
+
 class NameForm(FlaskForm):
     name = StringField('What is your name?', validators=[DataRequired()])
     submit = SubmitField('Submit')
+
+
+@app.shell_context_processor
+def make_shell_context():
+    return dict(db=db, User=User, Role=Role)
 
 
 @app.errorhandler(404)
@@ -65,6 +92,9 @@ def index():
             user = User(username=form.name.data, role_id=role)
             user.save()
             session['known'] = False
+            if app.config['FLASKY_ADMIN']:
+                send_email(app.config['FLASKY_ADMIN'], 'New User',
+                           'mail/new_user', user=user)
         else:
             session['known'] = True
         session['name'] = form.name.data
