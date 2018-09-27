@@ -13,9 +13,11 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'hard to guess string'
 app.config['MONGODB_SETTINGS'] = {
-    'db': 'project1',
-    'host': 'mongodb://127.0.0.1:10250/?ssl=true'
+    'host': 'mongodb://127.0.0.1:10250/project1?ssl=true',
+    'username': "localhost",
+    'password': 'C2y6yDjf5' + r'/R' + '+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw' + r'/Jw=='
 }
+
 
 bootstrap = Bootstrap(app)
 moment = Moment(app)
@@ -57,12 +59,18 @@ def internal_server_error(e):
 def index():
     form = NameForm()
     if form.validate_on_submit():
-        old_name = session.get('name')
-        if old_name is not None and old_name != form.name.data:
-            flash('Looks like you have changed your name!')
+        user = User.objects(username=form.name.data).first()
+        role = Role.objects(name="user").first()
+        if user is None:
+            user = User(username=form.name.data, role_id=role)
+            user.save()
+            session['known'] = False
+        else:
+            session['known'] = True
         session['name'] = form.name.data
         return redirect(url_for('index'))
-    return render_template('index.html', form=form, name=session.get('name'))
+    return render_template('index.html', form=form, name=session.get('name'),
+                           known=session.get('known', False))
 
 
 if __name__ == "__main__":
