@@ -8,6 +8,8 @@ from .forms import NameForm
 
 @main.route('/', methods=['GET', 'POST'])
 def index():
+    return render_template('index.html')
+    '''
     form = NameForm()
     if form.validate_on_submit():
         user = User.objects(username=form.name.data).first()
@@ -27,3 +29,4 @@ def index():
                            form=form,
                            name=session.get('name'),
                            known=session.get('known', False))
+    '''
